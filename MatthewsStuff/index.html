@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Demo</title>
+</head>
+<body>
+    <a href="http://jquery.com/">jQuery</a>
+    <script src="jquery.js"></script>
+    <script>
+    	var data = {};
+    	var DistrictPlansLoaded = false;
+    	var BuildingPermitsLoaded = false;
+
+    	// Function detecting if point is in polygon, from:
+    	// https://github.com/substack/point-in-polygon
+    	var inside = function(point, vs) {
+    		// ray-casting algorithm based on
+    		// http://www.ecse.rpi.edu/Homepages/wrf/Research/Short_Notes/pnpoly.html
+
+    		var x = point[0], y = point[1];
+
+    		var inside = false;
+    		for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+        		var xi = vs[i][0], yi = vs[i][1];
+        		var xj = vs[j][0], yj = vs[j][1];
+
+        		var intersect = ((yi > y) != (yj > y))
+            		&& (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        		if (intersect) inside = !inside;
+    		}
+
+    		return inside;
+		};
+
+    	var getWardData = function(callback) {
+    		$.getJSON("http://opendata.city-of-waterloo.opendata.arcgis.com/datasets/018ec0aa888648c7b5dabfaeaf08aa4b_0.geojson").done(function(WardData){
+ 					data.Wards = WardData;
+ 					console.log(WardData);
+ 					if(callback){
+ 						callback();
+ 					}
+ 			});
+    	};
+
+    	var getBuildingPermitData = function(callback) {
+    		$.getJSON("http://opendata.city-of-waterloo.opendata.arcgis.com/datasets/844423ef6bc540a5997bd128d7c552cd_0.geojson").done(function(BuildingPermitData){
+ 					data.BuildingPermits = BuildingPermitData;
+ 					console.log(BuildingPermitData);
+ 					BuildingPermitsLoaded = true;
+ 					if(callback){
+ 						callback();
+ 					}
+ 			});
+    	}
+
+    	var getNeighbourhoodAssociationData = function(callback) {
+    		$.getJSON("http://opendata.city-of-waterloo.opendata.arcgis.com/datasets/50193e4f74d949479b048cf445d6dd82_0.geojson").done(function(NeighbourhoodAssociationData){
+ 					data.NeighbourhoodAssociations = NeighbourhoodAssociationData;
+ 					console.log(NeighbourhoodAssociationData);
+ 					if(callback){
+ 						callback();
+ 					}
+ 			});
+    	};
+
+    	var getAddressData = function(callback) {
+    		$.getJSON("http://opendata.city-of-waterloo.opendata.arcgis.com/datasets/46d0b87b2aec4d7aad17fd90313ab94b_0.geojson").done(function(AddressData){
+ 					data.Addresses = AddressData;
+ 					console.log(AddressData);
+ 					if(callback){
+ 						callback();
+ 					}
+ 			});
+    	};
+
+    	var getDistrictPlanData = function(callback) {
+    		$.getJSON("http://opendata.city-of-waterloo.opendata.arcgis.com/datasets/2fb4cc862830455eb02a8fdd2f03d2b8_0.geojson").done(function(DistrictPlanData){
+ 					data.DistrictPlans = DistrictPlanData;
+ 					console.log(DistrictPlanData);
+ 					DistrictPlansLoaded = true;
+ 					if(callback){
+ 						callback();
+ 					}
+ 			});
+    	};
+
+    	var computePermitDistrictData = function(){
+    		var BuildingPermitDataForDistrictPlan = {};
+    		if(!DistrictPlansLoaded || !BuildingPermitsLoaded) {
+
+    		}
+ 			for(var numDistricts = 0; numDistricts < data.DistrictPlans.features.length; numDistricts++){
+ 				var singleDistrictData = {
+					'numPermits': 0,
+ 					'totalValue': 0,
+ 					'averageValue': 0
+ 				};
+ 				for(var numBuildingPermits = 0; numBuildingPermits < data.BuildingPermits.features.length; numBuildingPermits++){
+ 					var permitValue = parseInt(data.BuildingPermits.features[numBuildingPermits].properties.CONTRVALUE, 10);
+ 					if(inside(data.BuildingPermits.features[numBuildingPermits].geometry.coordinates, data.DistrictPlans.features[numDistricts].geometry.coordinates[0]) && !isNaN(permitValue)) {
+ 						singleDistrictData['numPermits']++;
+ 						singleDistrictData['totalValue'] = singleDistrictData['totalValue'] + permitValue;
+ 					}
+ 				}
+ 				singleDistrictData['averageValue'] = singleDistrictData['totalValue'] / singleDistrictData['numPermits'];
+ 				BuildingPermitDataForDistrictPlan[data.DistrictPlans.features[numDistricts].properties.DISTNAME] = singleDistrictData;
+ 			}
+ 			data.CalculatedPermitDistrictData = BuildingPermitDataForDistrictPlan;
+ 			console.log(BuildingPermitDataForDistrictPlan);
+ 		};
+ 		data.computePermitDistrictData = computePermitDistrictData;
+ 		$(document).ready(function(){
+ 			getDistrictPlanData(computePermitDistrictData);
+ 			getBuildingPermitData(computePermitDistrictData);
+ 			/*
+ 			// Wards 2014 Geometry/Geography data
+ 			$.getJSON("http://opendata.city-of-waterloo.opendata.arcgis.com/datasets/018ec0aa888648c7b5dabfaeaf08aa4b_0.geojson").done(function(WardData){
+ 					data.Wards = WardData;
+ 					console.log(WardData);
+ 			});
+ 			// Building permits data
+ 			$.getJSON("http://opendata.city-of-waterloo.opendata.arcgis.com/datasets/844423ef6bc540a5997bd128d7c552cd_0.geojson").done(function(BuildingPermitData){
+ 					data.BuildingPermits = BuildingPermitData;
+ 					console.log(BuildingPermitData);
+ 			});
+ 			// Neighbourhood Association data
+ 			$.getJSON("http://opendata.city-of-waterloo.opendata.arcgis.com/datasets/50193e4f74d949479b048cf445d6dd82_0.geojson").done(function(NeighbourhoodAssociationData){
+ 					data.NeighbourhoodAssociations = NeighbourhoodAssociationData;
+ 					console.log(NeighbourhoodAssociationData);
+ 			});
+ 			// Address data
+ 			$.getJSON("http://opendata.city-of-waterloo.opendata.arcgis.com/datasets/46d0b87b2aec4d7aad17fd90313ab94b_0.geojson").done(function(AddressData){
+ 					data.Addresses = AddressData;
+ 					console.log(AddressData);
+ 			});
+ 			// District Plans
+ 			$.getJSON("http://opendata.city-of-waterloo.opendata.arcgis.com/datasets/2fb4cc862830455eb02a8fdd2f03d2b8_0.geojson").done(function(DistrictPlanData){
+ 					data.DistrictPlans = DistrictPlanData;
+ 					console.log(DistrictPlanData);
+ 			});
+			*/
+
+ 		});
+    </script>
+</body>
+</html>
